@@ -301,7 +301,7 @@ func (suite *KeeperTestSuite) TestWithdrawDelegationRewards() {
 		expectPass  bool
 	}{
 		{
-			name:        "Unstake half from the ValSet",
+			name:        "Withdraw all rewards",
 			delegator:   sdk.AccAddress([]byte("addr1---------------")),
 			coinToStake: sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewInt(20_000_000)), // delegate 20osmo
 			expectPass:  true,
@@ -328,16 +328,30 @@ func (suite *KeeperTestSuite) TestWithdrawDelegationRewards() {
 			_, err = msgServer.DelegateToValidatorSet(c, types.NewMsgDelegateToValidatorSet(test.delegator, test.coinToStake))
 			suite.Require().NoError(err)
 
-			// define ending period in future
+			// incrementing the blockheight by 1 for reward
 			ctx := suite.Ctx.WithBlockHeight(suite.Ctx.BlockHeight() + 1)
-			endingPeriod := suite.App.DistrKeeper.IncrementValidatorPeriod(ctx, val)
 
-			// calculate delegation reward
-			rewards := suite.App.DistrKeeper.CalculateDelegationRewards(ctx, val, del, endingPeriod)
+			for _, val := range preferences {
+				// check that there is enough reward to withdraw
+				_, validator := suite.GetDelegationRewards(ctx, val, test.delegator)
+
+				// allocate some rewards
+				tokens := sdk.NewDecCoins(sdk.NewInt64DecCoin(sdk.DefaultBondDenom, 10))
+				suite.App.DistrKeeper.AllocateTokensToValidator(ctx, validator, tokens)
+
+				rewardsAfterAllocation, _ := suite.GetDelegationRewards(ctx, val, test.delegator)
+				suite.Require().NotNil(rewardsAfterAllocation)
+				suite.Require().NotZero(rewardsAfterAllocation[0].Amount)
+			}
 
 			_, err = msgServer.WithdrawDelegationRewards(c, types.NewMsgWithdrawDelegationRewards(test.delegator))
 			if test.expectPass {
 				suite.Require().NoError(err)
+
+				for _, val := range preferences {
+					rewardAfterWithdraw, _ := suite.GetDelegationRewards(ctx, val, test.delegator)
+					suite.Require().Nil(rewardAfterWithdraw)
+				}
 
 			} else {
 				suite.Require().Error(err)

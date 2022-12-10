@@ -115,6 +115,10 @@ func (k Keeper) UndelegateFromValidatorSet(ctx sdk.Context, delegatorAddr string
 	return nil
 }
 
+// WithdrawDelegationRewards withdraws all the delegation rewards from the validator in the val-set.
+// Delegation reward is collected by the validator and in doing so, they can charge commission to the delegators.
+// Rewards are calculated per period, and is updated each time validator delegation changes. For ex: when a delegator
+// recieves new delgation the rewards can be calculated by taking (total rewards before new delegation - the total current rewards).
 func (k Keeper) WithdrawDelegationRewards(ctx sdk.Context, delegatorAddr string) error {
 	// get the existing validator set preference
 	existingSet, found := k.GetValidatorSetPreference(ctx, delegatorAddr)
