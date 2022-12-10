@@ -292,3 +292,56 @@ func (suite *KeeperTestSuite) TestUnDelegateFromValidatorSet() {
 		})
 	}
 }
+
+func (suite *KeeperTestSuite) TestWithdrawDelegationRewards() {
+	tests := []struct {
+		name        string
+		delegator   sdk.AccAddress
+		coinToStake sdk.Coin
+		expectPass  bool
+	}{
+		{
+			name:        "Unstake half from the ValSet",
+			delegator:   sdk.AccAddress([]byte("addr1---------------")),
+			coinToStake: sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewInt(20_000_000)), // delegate 20osmo
+			expectPass:  true,
+		},
+	}
+
+	for _, test := range tests {
+		suite.Run(test.name, func() {
+			suite.SetupTest()
+
+			suite.FundAcc(test.delegator, sdk.Coins{sdk.NewInt64Coin(sdk.DefaultBondDenom, 100_000_000)}) // 100 osmo
+
+			// setup message server
+			msgServer := valPref.NewMsgServerImpl(suite.App.ValidatorSetPreferenceKeeper)
+			c := sdk.WrapSDKContext(suite.Ctx)
+
+			// call the create validator set preference
+			preferences := suite.PrepareDelegateToValidatorSet()
+
+			_, err := msgServer.SetValidatorSetPreference(c, types.NewMsgSetValidatorSetPreference(test.delegator, preferences))
+			suite.Require().NoError(err)
+
+			// call the create validator set preference
+			_, err = msgServer.DelegateToValidatorSet(c, types.NewMsgDelegateToValidatorSet(test.delegator, test.coinToStake))
+			suite.Require().NoError(err)
+
+			// define ending period in future
+			ctx := suite.Ctx.WithBlockHeight(suite.Ctx.BlockHeight() + 1)
+			endingPeriod := suite.App.DistrKeeper.IncrementValidatorPeriod(ctx, val)
+
+			// calculate delegation reward
+			rewards := suite.App.DistrKeeper.CalculateDelegationRewards(ctx, val, del, endingPeriod)
+
+			_, err = msgServer.WithdrawDelegationRewards(c, types.NewMsgWithdrawDelegationRewards(test.delegator))
+			if test.expectPass {
+				suite.Require().NoError(err)
+
+			} else {
+				suite.Require().Error(err)
+			}
+		})
+	}
+}

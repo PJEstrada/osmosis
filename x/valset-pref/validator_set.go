@@ -115,6 +115,32 @@ func (k Keeper) UndelegateFromValidatorSet(ctx sdk.Context, delegatorAddr string
 	return nil
 }
 
+func (k Keeper) WithdrawDelegationRewards(ctx sdk.Context, delegatorAddr string) error {
+	// get the existing validator set preference
+	existingSet, found := k.GetValidatorSetPreference(ctx, delegatorAddr)
+	if !found {
+		return fmt.Errorf("user %s doesn't have validator set", delegatorAddr)
+	}
+
+	delegator, err := sdk.AccAddressFromBech32(delegatorAddr)
+	if err != nil {
+		return err
+	}
+
+	for _, val := range existingSet.Preferences {
+		valAddr, err := sdk.ValAddressFromBech32(val.ValOperAddress)
+		if err != nil {
+			return fmt.Errorf("validator address not formatted")
+		}
+
+		_, err = k.communityPoolKeeper.WithdrawDelegationRewards(ctx, delegator, valAddr)
+		if err != nil {
+			return nil
+		}
+	}
+	return nil
+}
+
 // GetValAddrAndVal checks if the validator address is valid and the validator provided exists on chain.
 func (k Keeper) getValAddrAndVal(ctx sdk.Context, valOperAddress string) (sdk.ValAddress, stakingtypes.Validator, error) {
 	valAddr, err := sdk.ValAddressFromBech32(valOperAddress)
