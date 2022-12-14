@@ -15,7 +15,7 @@ import (
 // in logarithm and power math functions.
 // See twapLog and computeGeometricTwap functions for more details.
 var (
-	geometricTwapMathBase = sdk.NewDec(2)
+	geometricTwapMathBase = osmomath.NewBigDec(2)
 	// TODO: analyze choice.
 	geometricTwapPowPrecision = sdk.MustNewDecFromStr("0.00000001")
 )
@@ -311,5 +311,5 @@ func twapLog(price sdk.Dec) sdk.Dec {
 // twapPow exponentiates the geometricTwapMathBase to the given exponent.
 // TODO: basic test and benchmark.
 func twapPow(exponent sdk.Dec) sdk.Dec {
-	return osmomath.PowApprox(geometricTwapMathBase, exponent, geometricTwapPowPrecision)
+	return geometricTwapMathBase.Power(osmomath.BigDecFromSDKDec(exponent)).SDKDec()
 }
